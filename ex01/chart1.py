@@ -4,9 +4,9 @@ import pandas as pd
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 
 
-# Connect to the PostgreSQL database.
 def connect_db():
     """Connect to the PostgreSQL database."""
     try:
@@ -30,8 +30,8 @@ def fill_data_in_db(conn):
     try:
         sql_query = """
             SELECT
-                DATE_TRUNC('day', event_time) AS purchase_date,
-                COUNT(DISTINCT user_id) AS number_of_customers
+                DATE_TRUNC('month', event_time) AS purchase_date,
+                SUM(price) AS total_sales
             FROM
                 customers
             WHERE
@@ -41,7 +41,7 @@ def fill_data_in_db(conn):
             GROUP BY
                 purchase_date
             ORDER BY
-            purchase_date;
+                purchase_date;
         """
         cursor = conn.cursor()
         cursor.execute(sql_query)
@@ -53,44 +53,40 @@ def fill_data_in_db(conn):
     except Exception as e:
         print(f"\033[91mError creating table: {e}\033[0m")
     finally:
-        cursor.close()
+        cursor.close()  
+
 
 def create_charts(conn):
+    """
+    Connects to a PostgreSQL database, fetches monthly sales data,
+    and plots the result as a bar chart with a customized background.
+    Args:
+        conn: A database connection object.
+    """
     try:
         df = fill_data_in_db(conn)
         df['purchase_date'] = pd.to_datetime(df['purchase_date'])
-        fig, ax = plt.subplots(figsize=(12, 6))
+        df['total_sales_million'] = df['total_sales'] / 1000000
+        fig, ax = plt.subplots(figsize=(10, 6))
         fig.patch.set_facecolor('#ffffff')  
         ax.set_facecolor('#dee2e6')
-        ax.plot(
-            df['purchase_date'].to_numpy(),
-            df['number_of_customers'].to_numpy(),
-            linestyle='-',
-            color='steelblue',
-            linewidth=1.5
-        )
-
-        ax.set_title('Daily Number of Customers (Oct 2022 - Feb 2023)', color='#333333')
+        x_labels = df['purchase_date'].dt.strftime('%b')
+        plt.bar(x_labels, df['total_sales_million'], color='lightsteelblue')
+        ax.set_title('Total Sales in Million Altairian Dollars', color='#333333')
         ax.set_xlabel('Month', color='#555555')
-        ax.set_ylabel('Number of Customers', color='#555555')
-
-        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-
+        ax.set_ylabel('Total sales in million of A', color='#555555')
+        ax.set_ylim(0, df['total_sales_million'].max() * 1.2)
         ax.tick_params(axis='x', colors='#555555')
         ax.tick_params(axis='y', colors='#555555')
-
-        ax.grid(True, linestyle='-', alpha=1, color='#ffffff')
-        end_date = pd.to_datetime('2023-02-28')
-        ax.set_xlim(left=df['purchase_date'].min(), right=end_date)
-        ax.set_ylim(bottom=0)
+        ax.grid(True, linestyle='-', alpha=1, color='#ffffff', zorder=0)
+        ax.set_axisbelow(True)
         plt.tight_layout()
-        # plt.savefig('daily_customers_plot.png')
+        # plt.savefig('monthly_sales_chart.png')
         plt.show()
-        print("Chart successfully created and saved as daily_customers_plot.png")
-
+        print("Monthly sales chart successfully created and saved as monthly_sales_chart.png")   
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     conn = connect_db()

@@ -42,7 +42,7 @@ def create_charts_pie(conn):
             return
 
         # Colors similar to your example
-        colors = ['#4c72b0', '#dd8452', '#55a868', '#c44e52']
+        colors = ['blue', 'green', 'orange', 'red']
 
         # Create pie chart
         plt.figure(figsize=(6, 6))

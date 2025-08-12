@@ -21,59 +21,54 @@ def connect_db():
         print(f"\033[91mError connecting to the database: {e}\033[0m")
         return None
 
+def fill_data_in_db(conn):
+    """Fill in the database with sample data."""
+    try:
+        sql_query = """
+            SELECT
+                price
+            FROM
+                customers
+            WHERE
+                event_type = 'purchase'
+        """
+        print("\033[92mDatabase table created successfully!\033[0m")
+        return pd.read_sql_query(sql_query, conn)
+    except Exception as e:
+        print(f"\033[91mError creating table: {e}\033[0m")
+
+
 def create_price_boxplot(conn):
     """
     Connects to a PostgreSQL database, fetches price data for purchases,
     and plots the result as a box plot with a customized background.
     """
     try:
-        sql_query = """
-        SELECT
-            price
-        FROM
-            customers
-        WHERE
-            event_type = 'purchase'
-            AND event_time >= '2022-10-01'
-            AND event_time < '2023-03-01';
-        """
-        
-        df = pd.read_sql_query(sql_query, conn)
+        df = fill_data_in_db(conn)
+        if df.empty:
+            print("\033[93mNo data found for the specified query.\033[0m")
+            return
         
         fig, ax = plt.subplots(figsize=(10, 6))
-
-        # Background colors
-        fig.patch.set_facecolor('#f0f4f8')
-        ax.set_facecolor('#e6f2ff')
-
-        # Create the box plot without outliers
-       # Create the box plot without showing outliers
+        fig.patch.set_facecolor('#ffffff')  
+        ax.set_facecolor('#dee2e6')
         ax.boxplot(
             df['price'], 
             vert=False,
             patch_artist=True,
-            showfliers=False,  # <<< Hides outliers
+            showfliers=False,
             boxprops=dict(facecolor='green', edgecolor='black'),
             medianprops=dict(color='red', linewidth=1),
             whiskerprops=dict(color='#555555'),
             capprops=dict(color='#555555')
         )
-
-
-        # Remove y-axis ticks
         ax.set_yticks([])
-
-        # Titles & labels
         ax.set_title('Distribution of Product Prices (Oct 2022 - Feb 2023)', color='#333333')
         ax.set_xlabel('Price in A', color='#555555')
-
-        # Set x-axis limit (zoom)
-        ax.set_xlim(-0.5, 12)  # Only show range from 0 to 12
-
+        ax.set_xlim(-0.5, 12)
         ax.tick_params(axis='x', colors='#555555')
         ax.grid(True, axis='x', linestyle='-', alpha=1, color='#ffffff')
         ax.grid(False, axis='y')
-
         plt.tight_layout()
         # plt.savefig('price_boxplot.png')
         plt.show()

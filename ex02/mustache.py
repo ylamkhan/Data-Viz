@@ -33,21 +33,11 @@ def fill_data_in_db(conn):
                 customers
             WHERE
                 event_type = 'purchase'
-                AND event_time >= '2022-10-01'
-                AND event_time < '2023-03-01'
-                AND price IS NOT NULL;
         """
-        cursor = conn.cursor()
-        cursor.execute(sql_query)
-        results = cursor.fetchall()
-        column_names = cursor.description[0][0]
-        df = pd.DataFrame(results, columns=[column_names])
         print("\033[92mDatabase table created successfully!\033[0m")
-        return df
+        return pd.read_sql_query(sql_query, conn)
     except Exception as e:
         print(f"\033[91mError creating table: {e}\033[0m")
-    finally:
-        cursor.close()
 
 def statistics(conn):
     """

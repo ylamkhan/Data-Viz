@@ -2,8 +2,6 @@ import psycopg2
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-
-import psycopg2
 import os
 from dotenv import load_dotenv
 import matplotlib.ticker as ticker
@@ -25,6 +23,27 @@ def connect_db():
         print(f"\033[91mError connecting to the database: {e}\033[0m")
         return None
 
+#fill data in db
+def fill_data_in_db(conn):
+    """Fill in the database with sample data."""
+    try:
+        sql_query = """
+            SELECT
+                DATE_TRUNC('day', event_time) AS purchase_date,
+                SUM(price) / COUNT(DISTINCT user_id) AS average_per_user
+            FROM
+                customers
+            WHERE
+                event_type = 'purchase'
+            GROUP BY
+                purchase_date
+            ORDER BY
+                purchase_date;
+        """
+        print("\033[92mDatabase table created successfully!\033[0m")
+        return pd.read_sql_query(sql_query, conn)
+    except Exception as e:
+        print(f"\033[91mError creating table: {e}\033[0m")
 
 def create_chart(conn):
     """
@@ -35,44 +54,19 @@ def create_chart(conn):
         conn: A database connection object.
     """
     try:
-        sql_query = """
-        SELECT
-            DATE_TRUNC('day', event_time) AS purchase_date,
-            SUM(price) / COUNT(DISTINCT user_id) AS average_per_user
-        FROM
-            customers
-        WHERE
-            event_type = 'purchase'
-            AND event_time >= '2022-10-01'
-            AND event_time < '2023-03-01'
-        GROUP BY
-            purchase_date
-        ORDER BY
-            purchase_date;
-        """
-        
-        # Use pandas to read the query result directly into a DataFrame
-        df = pd.read_sql_query(sql_query, conn)
-        
-        # Ensure 'purchase_date' is a datetime object
+        df = fill_data_in_db(conn)
+        if df.empty:
+            print("\033[93mNo data found for the specified query.\033[0m")
+            return
         df['purchase_date'] = pd.to_datetime(df['purchase_date'])
-
-        # Create the area plot
         fig, ax = plt.subplots(figsize=(12, 6))
         fig.patch.set_facecolor('#ffffff')  
         ax.set_facecolor('#dee2e6')
-        # Plot the data as a filled area
         ax.fill_between(df['purchase_date'], df['average_per_user'], color='lightsteelblue', alpha=0.8)
-
-        # Set the x-axis to show monthly ticks
         ax = plt.gca()
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-        
-        # Set the limits of the y-axis to start from 0
         plt.ylim(bottom=0)
-        
-        # Set titles and labels
         plt.title('Daily Average Spend Per Customer')
         plt.xlabel('Date')
         plt.ylabel('Average spend/customers in A')
@@ -84,7 +78,6 @@ def create_chart(conn):
         plt.tight_layout()
         # plt.savefig('average_spend_chart.png')
         plt.show()
-
         print("Average spend chart successfully created and saved as average_spend_chart.png")
         
     except Exception as e:
